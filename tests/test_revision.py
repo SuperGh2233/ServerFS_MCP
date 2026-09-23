@@ -188,10 +188,12 @@ class TestRevisionOpacity:
             call_success(srv, "read_text_file", {"workdir": "test", "path": "a.txt"})["revision"],
         }
         for revision in revisions:
-            assert str(st.st_ino) not in revision
-            assert str(st.st_uid) not in revision
-            assert str(st.st_gid) not in revision
-            assert str(st.st_dev) not in revision
+            assert REVISION_RE.fullmatch(revision)
+            # Check realistic fixed-width representations: single-digit IDs
+            # can naturally occur in any hexadecimal digest and aren't evidence
+            # that the raw stat value was disclosed.
+            for value in (st.st_dev, st.st_ino, st.st_uid, st.st_gid):
+                assert f"{value:016x}" not in revision
 
     def test_identical_content_in_different_files_differs(self, workdir) -> None:
         """Two files with equal bytes must not share a revision: the token

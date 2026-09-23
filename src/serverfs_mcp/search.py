@@ -2,7 +2,8 @@
 
 rg runs with an argument array (never a shell string; user input never
 concatenates into a command string) rooted at a pre-validated directory FD
-(via /proc/self/fd), streaming ``--json`` output. ServerFS:
+(via /proc/self/fd on Linux or a child-side fchdir on macOS), streaming
+``--json`` output. ServerFS:
 
 - applies hidden/deny policy to every result path (defense in depth)
 - enforces the GLOBAL result limit with true early-stop: once limit+1
@@ -17,6 +18,7 @@ import json
 import os
 import selectors
 import subprocess
+import sys
 import time
 
 from . import logging as jsonlog
@@ -147,14 +149,23 @@ def run_search(
     """
     base_parts = resolved.rel_parts
     args = _rg_args(query, glob, case_sensitive, max_file_bytes)
-    proc = subprocess.Popen(
-        args,
-        cwd=proc_fd_path(root_fd),
-        shell=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        pass_fds=(root_fd,),
-    )
+    command = args
+    cwd = proc_fd_path(root_fd)
+    popen_kwargs = {
+        "shell": False,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+    }
+    if cwd is None:
+        # Avoid preexec_fn in this multi-threaded MCP server. A tiny helper
+        # process fchdirs to the validated FD and execs rg immediately.
+        command = [sys.executable, "-m", "serverfs_mcp.fd_exec", str(root_fd), *args]
+        popen_kwargs["cwd"] = "/"
+        popen_kwargs["pass_fds"] = (root_fd,)
+    else:
+        popen_kwargs["cwd"] = cwd
+        popen_kwargs["pass_fds"] = (root_fd,)
+    proc = subprocess.Popen(command, **popen_kwargs)
     matches: list[TextMatch] = []
     truncated = False
     timed_out = False

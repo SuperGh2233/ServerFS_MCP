@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""One-shot SO_PEERCRED probe for the serverfs-mcp container identity.
+"""One-shot Unix socket peer-credential probe for the ServerFS process.
 
-Run as the normal ServerFS user. The probe socket lives below the user's
-persistent ServerFS Agent deployment tree and is intentionally temporary. No
-root privilege, system directory or host ownership change is required.
+Linux reads SO_PEERCRED; macOS reads getpeereid(2). Run as the normal ServerFS
+user. The probe socket lives below the user's persistent Agent deployment tree
+and is intentionally temporary. No root privilege, system directory or host
+ownership change is required.
 """
 
 from __future__ import annotations
@@ -14,8 +15,13 @@ import secrets
 import shutil
 import socket
 import stat
-import struct
+import sys
 from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO_ROOT / "agent_bridge" / "src"))
+
+from serverfs_agent_bridge.peer_credentials import peer_uid_gid  # noqa: E402
 
 
 def _default_directory() -> Path:
@@ -87,13 +93,7 @@ def main() -> None:
                         received += chunk
                     if received.rstrip(b"\r\n").decode("utf-8", errors="replace") != token:
                         continue
-                    raw = connection.getsockopt(
-                        socket.SOL_SOCKET,
-                        socket.SO_PEERCRED,
-                        struct.calcsize("3i"),
-                    )
-                    pid, uid, gid = struct.unpack("3i", raw)
-                    print(f"pid={pid}")
+                    uid, gid = peer_uid_gid(connection)
                     print(f"uid={uid}")
                     print(f"gid={gid}")
                     print(f"login_uid={os.getuid()}")

@@ -1,0 +1,31 @@
+# macOS-native ServerFS + host Agent Bridge topology.
+#
+# ServerFS and the Agent Bridge run as native macOS processes so they can share
+# the same-user Unix socket. The Docker Desktop file-sharing layer does not
+# support connecting to a Unix socket bind-mounted from macOS into a Linux
+# container. This file runs only the outbound OpenAI tunnel; it reaches the
+# loopback-bound native MCP server through Docker Desktop's host gateway.
+#
+# Start the native ServerFS and Agent Bridge processes first, then run:
+#   docker compose --project-name serverfs-mac --env-file .env \
+#     -f compose.macos.yml up -d
+
+services:
+  openai-tunnel:
+    image: ${OPENAI_TUNNEL_IMAGE:-ghcr.io/openai/tunnel-client:v0.0.14}
+    restart: unless-stopped
+    environment:
+      CONTROL_PLANE_API_KEY: ${CONTROL_PLANE_API_KEY}
+      CONTROL_PLANE_TUNNEL_ID: ${CONTROL_PLANE_TUNNEL_ID}
+      CONTROL_PLANE_BASE_URL: ${CONTROL_PLANE_BASE_URL:-https://api.openai.com}
+      MCP_SERVER_URL: http://host.docker.internal:8000/mcp
+      MCP_STARTUP_WAIT_TIMEOUT: ${MCP_STARTUP_WAIT_TIMEOUT:-60s}
+      LOG_LEVEL: ${TUNNEL_LOG_LEVEL:-info}
+      LOG_FORMAT: ${TUNNEL_LOG_FORMAT:-json}
+      HEALTH_LISTEN_ADDR: ${HEALTH_LISTEN_ADDR:-:8080}
+    expose:
+      - "8080"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true

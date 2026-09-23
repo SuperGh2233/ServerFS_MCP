@@ -64,6 +64,16 @@ lifecycle uses `systemctl --user`. Application/config/state live below
 runtime directories are persistent user-owned paths below
 `~/.local/share/serverfs-agent-bridge/runtime` so their inode identity survives Bridge restarts.
 
+The v0.7 macOS compatibility path is separate from the Linux systemd overlay:
+ServerFS and the host Agent Bridge run natively as the same login user, share a
+local Unix socket, and authenticate the peer with macOS `getpeereid(2)`. Docker
+Desktop's file-sharing layer cannot connect to a host Unix socket bind-mounted
+into a Linux container, so `compose.macos.yml` runs only the outbound tunnel.
+Native ServerFS binds to loopback and permits only the exact
+`host.docker.internal:8000` Host authority. Keep the Linux `SO_PEERCRED`,
+`compose.agent.yml`, internal MCP network and `systemctl --user` deployment
+unchanged.
+
 Agent-enabled deployment requires the `serverfs-mcp` container to request the same
 UID/GID as the current login user. The Bridge still measures the real host-kernel
 SO_PEERCRED identity. That equality is a post-measurement assertion, never a shortcut:

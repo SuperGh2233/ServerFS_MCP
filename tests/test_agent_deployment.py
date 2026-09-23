@@ -82,6 +82,40 @@ def test_build_config_uses_same_user_identity_and_user_paths(tmp_path: Path) -> 
     ]
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="native Agent identity applies on macOS")
+def test_native_macos_bridge_config_uses_same_user_for_host_processes(
+    tmp_path: Path,
+) -> None:
+    values = valid_env(tmp_path)
+    values["SERVERFS_NATIVE_MODE"] = "true"
+    values["SERVERFS_AGENT_PEER_UID"] = ""
+    values["SERVERFS_AGENT_PEER_GID"] = ""
+    values["SERVERFS_UID"] = ""
+    values["SERVERFS_GID"] = ""
+
+    config = render.build_config(values)
+
+    assert config["allowed_peer_uid"] == os.getuid()
+    assert config["allowed_peer_gid"] == os.getgid()
+
+
+def test_native_macos_config_uses_host_user_without_container_peer_probe(tmp_path: Path) -> None:
+    values = valid_env(tmp_path)
+    values["SERVERFS_NATIVE_MODE"] = "true"
+    for key in (
+        "SERVERFS_UID",
+        "SERVERFS_GID",
+        "SERVERFS_AGENT_PEER_UID",
+        "SERVERFS_AGENT_PEER_GID",
+    ):
+        values.pop(key)
+
+    config = render.build_config(values)
+
+    assert config["allowed_peer_uid"] == os.getuid()
+    assert config["allowed_peer_gid"] == os.getgid()
+
+
 @pytest.mark.parametrize(
     ("key", "message"),
     [
@@ -245,6 +279,15 @@ def test_base_compose_remains_agent_unaware() -> None:
     assert "/run/serverfs-agent-locks" not in text
 
 
+def test_macos_compose_runs_only_the_outbound_tunnel_to_native_server() -> None:
+    text = (_REPO_ROOT / "compose.macos.yml").read_text(encoding="utf-8")
+    assert "MCP_SERVER_URL: http://host.docker.internal:8000/mcp" in text
+    assert "services:" in text
+    assert "openai-tunnel:" in text
+    assert "serverfs-mcp:" not in text
+    assert "ports:" not in text
+
+
 def test_agent_overlay_uses_user_host_dirs_and_read_only_container_mounts() -> None:
     text = (_REPO_ROOT / "compose.agent.yml").read_text(encoding="utf-8")
     assert "source: ${SERVERFS_AGENT_BRIDGE_HOST_SOCKET_DIR}" in text
@@ -356,12 +399,16 @@ def test_installer_and_rollback_are_user_scoped() -> None:
     assert install.index("systemctl --user show-environment") < install.index("mkdir -p")
 
 
-def test_peercred_probe_is_user_scoped_and_uses_linux_so_peercred() -> None:
+def test_peercred_probe_is_user_scoped_and_platform_aware() -> None:
     text = (_REPO_ROOT / "deployment" / "agent-bridge" / "measure_peercred.py").read_text(
         encoding="utf-8"
     )
-    assert "socket.SO_PEERCRED" in text
-    assert "struct.unpack" in text
+    peer_credentials = (
+        _REPO_ROOT / "agent_bridge" / "src" / "serverfs_agent_bridge" / "peer_credentials.py"
+    ).read_text(encoding="utf-8")
+    assert "peer_uid_gid" in text
+    assert "socket.SO_PEERCRED" in peer_credentials
+    assert "getpeereid" in peer_credentials
     assert "secrets.token_urlsafe" in text
     assert "user_scope_compatible" in text
     assert "Path.home()" in text
@@ -376,25 +423,29 @@ def test_peercred_probe_creates_its_own_directory_tree(tmp_path: Path) -> None:
     # because an AF_UNIX sun_path is capped near 107 bytes.
     directory = tmp_path / "probe-root" / "peer-probe"
 
-    result = subprocess.run(
+    process = subprocess.Popen(
         [
-            "timeout",
-            "3",
             sys.executable,
             str(_REPO_ROOT / "deployment/agent-bridge/measure_peercred.py"),
             "--directory",
             str(directory),
         ],
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=60,
     )
+    try:
+        stdout, stderr = process.communicate(timeout=3)
+        timed_out = False
+    except subprocess.TimeoutExpired:
+        process.terminate()
+        stdout, stderr = process.communicate(timeout=5)
+        timed_out = True
 
-    assert "Traceback" not in result.stderr, result.stderr
-    assert f"listening={directory / 'peer.sock'}" in result.stdout
-    assert "token=" in result.stdout
-    # `timeout` reports 124 only because the probe was still blocked in accept().
-    assert result.returncode == 124, (result.returncode, result.stdout, result.stderr)
+    assert timed_out, "probe unexpectedly exited before receiving an authenticated connection"
+    assert "Traceback" not in stderr, stderr
+    assert f"listening={directory / 'peer.sock'}" in stdout
+    assert "token=" in stdout
     assert directory.is_dir()
 
 
@@ -416,6 +467,7 @@ def test_verify_host_waits_for_bridge_socket_startup_race(
             listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             listener.bind(str(socket_path))
             os.chmod(socket_path, 0o660)
+            os.chown(socket_path, -1, os.getgid())
 
     monkeypatch.setattr(verify_host, "_probe_bridge", fake_probe)
     monkeypatch.setattr(verify_host.time, "sleep", fake_sleep)
@@ -444,6 +496,7 @@ def test_verify_host_retries_transient_rpc_failures(
     listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     listener.bind(str(socket_path))
     os.chmod(socket_path, 0o660)
+    os.chown(socket_path, -1, os.getgid())
 
     attempts = 0
 
@@ -479,6 +532,7 @@ def test_verify_host_distinguishes_missing_socket_from_unready_rpc(
     listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     listener.bind(str(socket_path))
     os.chmod(socket_path, 0o660)
+    os.chown(socket_path, -1, os.getgid())
 
     def failing_probe(_path: Path) -> None:
         raise ConnectionRefusedError("bridge never becomes ready")
@@ -506,6 +560,7 @@ def test_deployment_executables_never_require_privileged_install() -> None:
         "rollback_app.sh",
         "measure_peercred.py",
         "verify_host.py",
+        "run_macos_bridge.sh",
     ]
     for name in names:
         text = (_REPO_ROOT / "deployment/agent-bridge" / name).read_text(encoding="utf-8")
@@ -581,9 +636,18 @@ def test_documented_deployment_entrypoints_are_executable() -> None:
     # rather than through `bash`, and git records the executable bit, so a
     # checkout without it fails with "Permission denied" on the documented
     # command. The .py helpers are documented as `python3 <path>` and need no bit.
-    for name in ("install.sh", "rollback_app.sh"):
+    for name in ("install.sh", "rollback_app.sh", "run_macos_bridge.sh"):
         path = _REPO_ROOT / "deployment" / "agent-bridge" / name
         assert os.access(path, os.X_OK), f"{name} must be executable"
+
+
+def test_macos_bridge_launcher_uses_the_package_entrypoint() -> None:
+    launcher = (_REPO_ROOT / "deployment/agent-bridge/run_macos_bridge.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "serverfs-agent-bridge" in launcher
+    assert 'exec "$BRIDGE_BIN" --config "$CONFIG"' in launcher
+    assert "python -m serverfs_agent_bridge" not in launcher
 
 
 # ---------------------------------------------------------------------------
@@ -867,6 +931,7 @@ def test_installer_first_run_failure_leaves_no_previous_deployment(tmp_path: Pat
     assert list(releases.iterdir()) == []
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="Linux systemd deployment integration test")
 def test_rollback_restart_failure_restores_original_links(tmp_path: Path) -> None:
     harness = _fake_deployment_harness(tmp_path, fail_first_start=True)
     release_a = _seed_release(harness["releases"], "A")
@@ -894,6 +959,7 @@ def test_rollback_restart_failure_restores_original_links(tmp_path: Path) -> Non
     assert leftovers == []
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="Linux systemd deployment integration test")
 def test_normal_update_moves_current_to_previous(tmp_path: Path) -> None:
     harness = _fake_deployment_harness(tmp_path)
     old_release = _seed_release(harness["releases"], "A")
@@ -924,6 +990,7 @@ def test_normal_update_moves_current_to_previous(tmp_path: Path) -> None:
     assert _service_state(harness) == (True, True)
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="Linux systemd deployment integration test")
 def test_no_start_stages_update_without_stopping_active_service(tmp_path: Path) -> None:
     harness = _fake_deployment_harness(tmp_path)
     old_release = _seed_release(harness["releases"], "A")
@@ -958,6 +1025,7 @@ def test_no_start_stages_update_without_stopping_active_service(tmp_path: Path) 
         assert not any(line.startswith(f"--user {lifecycle} ") for line in commands)
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="Linux systemd deployment integration test")
 def test_normal_rollback_swaps_current_and_previous(tmp_path: Path) -> None:
     harness = _fake_deployment_harness(tmp_path)
     release_a = _seed_release(harness["releases"], "A")

@@ -24,6 +24,7 @@ _ENTRY_TYPE_FILE = "file"
 _ENTRY_TYPE_DIR = "directory"
 _ENTRY_TYPE_SYMLINK = "symlink"
 _ENTRY_TYPE_OTHER = "other"
+_MIME_FALLBACKS = {".yaml": "application/yaml", ".yml": "application/yaml"}
 
 
 def _rfc3339_utc(mtime: float | None) -> str | None:
@@ -118,9 +119,9 @@ def stat_file(resolved: ResolvedPath) -> StatFileResult:
     if etype == _ENTRY_TYPE_FILE:
         import mimetypes
 
-        mime_type = (
-            mimetypes.guess_type(resolved.container_path.name)[0] or "application/octet-stream"
-        )
+        guessed = mimetypes.guess_type(resolved.container_path.name)[0]
+        suffix = resolved.container_path.suffix.lower()
+        mime_type = guessed or _MIME_FALLBACKS.get(suffix) or "application/octet-stream"
     return StatFileResult(
         workdir=resolved.workdir.alias,
         path=resolved.rel_path,

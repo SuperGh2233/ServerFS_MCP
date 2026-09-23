@@ -53,6 +53,76 @@ v0.7.0 strengthens the existing Agent Bridge without turning ServerFS into a wor
 - Docker + Docker Compose
 - An OpenAI Secure MCP Tunnel (created in the OpenAI dashboard)
 
+## macOS native Agent Bridge
+
+Docker Desktop runs the Linux ServerFS image inside a VM. Its macOS file-sharing
+layer cannot pass a host Unix-domain socket into that container, which the
+Phase E Agent Bridge uses for same-user peer authentication. For Agent Bridge
+testing on macOS, run ServerFS and the Agent Bridge as native processes under
+the same login user; Docker runs only the outbound OpenAI tunnel. ServerFS
+binds to `127.0.0.1:8000`, and the tunnel reaches that loopback endpoint via
+`host.docker.internal`. The MCP transport accepts that exact Host value and
+still rejects non-empty Origins.
+
+Set `SERVERFS_NATIVE_MODE=true` in the existing `.env`. In this mode,
+`WORKDIR_XX_PATH` values are direct absolute macOS paths and must be real
+directories. Agent Bridge peer credentials are checked with macOS
+`getpeereid(2)` for every local socket connection. The native ServerFS launcher
+loads only ServerFS/workdir settings from `.env`; tunnel credentials and
+provider-only settings are not copied into its process environment.
+
+Use dedicated scratch space for a workspace-write Agent workdir. Keep broader
+project workdirs read-only or Agent-disabled. The Mac host processes run with
+the login user's normal filesystem permissions, so Agent delegation should be
+enabled only for workdirs you explicitly authorize.
+
+Install the locked Python environments and render the Bridge config using the
+same `.env`:
+
+```bash
+python3.12 -m venv .venv
+.venv/bin/python -m pip install uv
+.venv/bin/uv sync --frozen
+python3.12 -m venv agent_bridge/.venv
+agent_bridge/.venv/bin/python -m pip install uv
+agent_bridge/.venv/bin/uv sync --frozen
+```
+
+Create the user-owned socket, lock, state, and Codex test-home directories from
+the values in `.env`, then render the private Bridge config:
+
+```bash
+mkdir -p "$HOME/.config/serverfs-agent-bridge" \
+  "$HOME/.local/share/serverfs-agent-bridge/runtime/socket" \
+  "$HOME/.local/share/serverfs-agent-bridge/runtime/locks" \
+  "$HOME/.local/state/serverfs-agent-bridge"
+python3 deployment/agent-bridge/render_config.py \
+  --env-file .env \
+  --output "$HOME/.config/serverfs-agent-bridge/config.json"
+```
+
+Then run the Bridge and ServerFS in separate terminals:
+
+```bash
+deployment/agent-bridge/run_macos_bridge.sh \
+  "$HOME/.config/serverfs-agent-bridge/config.json"
+.venv/bin/python deployment/agent-bridge/run_macos_server.py --env-file .env
+docker compose --project-name serverfs-mac --env-file .env \
+  -f compose.macos.yml up -d
+```
+
+The macOS tunnel-only Compose file reuses the existing Tunnel ID and Runtime
+API Key. Stop any other tunnel client using that Tunnel ID before starting it.
+The base Linux Compose deployment and its `compose.agent.yml` overlay remain
+unchanged.
+
+For Codex, use a dedicated short `SERVERFS_CODEX_HOME` such as
+`$HOME/.codex/serverfs-mac-test`, with `model = "gpt-6-luna"` and
+`model_reasoning_effort = "max"` in its `config.toml`. Keep the path short
+because Codex nests its control socket below the home and macOS limits
+Unix-socket path length; this keeps model settings and authentication separate
+from the regular Codex home.
+
 ## Quick Start
 
 ```bash

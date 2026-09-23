@@ -19,6 +19,7 @@ import math
 import os
 import re
 import shlex
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -158,23 +159,32 @@ def build_config(values: dict[str, str]) -> dict[str, Any]:
     ):
         raise ConfigRenderError("SERVERFS_AGENT_BRIDGE_ENABLED must be true")
 
-    peer_uid = _required_int(values, "SERVERFS_AGENT_PEER_UID")
-    peer_gid = _required_int(values, "SERVERFS_AGENT_PEER_GID")
-    try:
-        container_uid = int(values.get("SERVERFS_UID", "-1"), 10)
-        container_gid = int(values.get("SERVERFS_GID", "-1"), 10)
-    except ValueError as exc:
-        raise ConfigRenderError("SERVERFS_UID/SERVERFS_GID must be integers") from exc
-    if container_uid != os.getuid() or peer_uid != os.getuid():
-        raise ConfigRenderError(
-            "Phase E user deployment requires SERVERFS_UID and "
-            "SERVERFS_AGENT_PEER_UID to equal the current user id"
-        )
-    if container_gid != os.getgid() or peer_gid != os.getgid():
-        raise ConfigRenderError(
-            "Phase E user deployment requires SERVERFS_GID and "
-            "SERVERFS_AGENT_PEER_GID to equal the current primary group id"
-        )
+    native_mode = _bool(values.get("SERVERFS_NATIVE_MODE", ""), "SERVERFS_NATIVE_MODE", False)
+    if native_mode:
+        if sys.platform != "darwin":
+            raise ConfigRenderError("SERVERFS_NATIVE_MODE is supported only on macOS")
+        # Both native processes run as the current user. BridgeProtocolServer
+        # still checks the kernel-reported peer credentials on each UDS call.
+        peer_uid = os.getuid()
+        peer_gid = os.getgid()
+    else:
+        peer_uid = _required_int(values, "SERVERFS_AGENT_PEER_UID")
+        peer_gid = _required_int(values, "SERVERFS_AGENT_PEER_GID")
+        try:
+            container_uid = int(values.get("SERVERFS_UID", "-1"), 10)
+            container_gid = int(values.get("SERVERFS_GID", "-1"), 10)
+        except ValueError as exc:
+            raise ConfigRenderError("SERVERFS_UID/SERVERFS_GID must be integers") from exc
+        if container_uid != os.getuid() or peer_uid != os.getuid():
+            raise ConfigRenderError(
+                "Phase E user deployment requires SERVERFS_UID and "
+                "SERVERFS_AGENT_PEER_UID to equal the current user id"
+            )
+        if container_gid != os.getgid() or peer_gid != os.getgid():
+            raise ConfigRenderError(
+                "Phase E user deployment requires SERVERFS_GID and "
+                "SERVERFS_AGENT_PEER_GID to equal the current primary group id"
+            )
 
     _positive_float(
         values.get("SERVERFS_AGENT_BRIDGE_TIMEOUT_SECONDS", ""),

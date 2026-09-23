@@ -15,6 +15,8 @@ from serverfs_mcp import mutations as mutation_module
 from serverfs_mcp.config import Settings
 from serverfs_mcp.main import create_server
 from serverfs_mcp.mutations import MetadataPreservationError
+from serverfs_mcp.xattrs import get_path as get_xattr_path
+from serverfs_mcp.xattrs import set_path as set_xattr_path
 
 
 def _b64(data: bytes) -> str:
@@ -216,7 +218,7 @@ class TestOverwriteSafety:
         target = workdir.container_path / "x.bin"
         target.write_bytes(b"OLD")
         try:
-            os.setxattr(target, "user.serverfs_phase_d", b"kept")
+            set_xattr_path(target, "user.serverfs_phase_d", b"kept")
         except OSError:
             pytest.skip("filesystem does not support writable user xattrs")
 
@@ -224,7 +226,7 @@ class TestOverwriteSafety:
         before = _revision(server, "x.bin")
         _overwrite(server, "x.bin", b"NEW", before)
 
-        assert os.getxattr(target, "user.serverfs_phase_d") == b"kept"
+        assert get_xattr_path(target, "user.serverfs_phase_d") == b"kept"
 
     def test_metadata_failure_leaves_original_and_no_temp(self, workdir, monkeypatch) -> None:
         target = workdir.container_path / "x.bin"

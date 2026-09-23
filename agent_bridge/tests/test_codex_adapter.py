@@ -2,9 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import shutil
-import tempfile
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -21,20 +18,16 @@ from serverfs_agent_bridge.store import TaskStore
 
 
 @pytest.fixture
-def codex_home() -> Iterator[Path]:
+def codex_home(tmp_path: Path) -> Path:
     """A Codex home short enough to bind the production control-socket layout.
 
     ``CodexSettings.control_socket`` nests two directories below the codex home,
-    and AF_UNIX paths are capped near 107 bytes.  A pytest ``tmp_path`` plus that
-    layout overflows the limit, so the mock daemon binds under a short root.
+    and AF_UNIX paths are capped near 107 bytes. The short-path ``tmp_path``
+    fixture keeps the mock daemon within that platform limit.
     """
-    root = Path(tempfile.mkdtemp(prefix="sfs-codex-", dir=tempfile.gettempdir()))
-    home = root / "codex-home"
+    home = tmp_path / "codex-home"
     home.mkdir()
-    try:
-        yield home
-    finally:
-        shutil.rmtree(root, ignore_errors=True)
+    return home
 
 
 class MockCodexServer:

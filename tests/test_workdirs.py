@@ -470,3 +470,78 @@ class TestDisabledSlotConsistency:
         root = make_root(tmp_path, {1: True})
         reg = build_registry(*envs("projects"), read_only_env({1: "false"}), workdir_root=root)
         assert reg.get("projects").read_only is False
+
+
+class TestNativeMacWorkdirs:
+    def test_native_paths_are_used_directly_and_disabled_slots_need_no_sentinel(
+        self, tmp_path: Path
+    ) -> None:
+        projects = tmp_path / "Projects"
+        projects.mkdir()
+        env = {
+            "SERVERFS_NATIVE_MODE": "true",
+            "WORKDIR_01_ALIAS": "projects",
+            "WORKDIR_01_PATH": str(projects),
+        }
+
+        registry = build_registry_from_env(env, Settings())
+
+        assert registry.get("projects").container_path == projects
+        assert len(registry) == 1
+
+    def test_native_agent_workspace_write_policy_is_resolved(self, tmp_path: Path) -> None:
+        scratch = tmp_path / "scratch"
+        scratch.mkdir()
+        env = {
+            "SERVERFS_NATIVE_MODE": "true",
+            "WORKDIR_01_ALIAS": "scratch",
+            "WORKDIR_01_PATH": str(scratch),
+            "WORKDIR_01_READ_ONLY": "false",
+            "WORKDIR_01_AGENT_MODE": "workspace-write",
+            "WORKDIR_01_AGENT_RUNTIMES": "codex",
+        }
+
+        workdir = build_registry_from_env(env, Settings()).get("scratch")
+
+        assert workdir is not None
+        assert workdir.policy.agent_mode == AGENT_MODE_WORKSPACE_WRITE
+        assert workdir.policy.agent_runtimes == frozenset({"codex"})
+
+    def test_native_alias_requires_existing_absolute_real_directory(self, tmp_path: Path) -> None:
+        missing = tmp_path / "missing"
+        with pytest.raises(WorkdirError, match="existing absolute real directory"):
+            build_registry_from_env(
+                {
+                    "SERVERFS_NATIVE_MODE": "true",
+                    "WORKDIR_01_ALIAS": "projects",
+                    "WORKDIR_01_PATH": str(missing),
+                },
+                Settings(),
+            )
+
+    def test_native_symlink_root_is_rejected(self, tmp_path: Path) -> None:
+        real = tmp_path / "real"
+        real.mkdir()
+        link = tmp_path / "link"
+        link.symlink_to(real, target_is_directory=True)
+        with pytest.raises(WorkdirError, match="existing absolute real directory"):
+            build_registry_from_env(
+                {
+                    "SERVERFS_NATIVE_MODE": "true",
+                    "WORKDIR_01_ALIAS": "projects",
+                    "WORKDIR_01_PATH": str(link),
+                },
+                Settings(),
+            )
+
+    def test_native_path_without_alias_is_rejected(self, tmp_path: Path) -> None:
+        root = tmp_path / "projects"
+        root.mkdir()
+        with pytest.raises(WorkdirError, match="ALIAS is empty"):
+            build_registry_from_env(
+                {"SERVERFS_NATIVE_MODE": "true", "WORKDIR_01_PATH": str(root)}, Settings()
+            )
+
+    def test_native_mode_boolean_is_fail_closed(self) -> None:
+        with pytest.raises(WorkdirError, match="SERVERFS_NATIVE_MODE"):
+            build_registry_from_env({"SERVERFS_NATIVE_MODE": "maybe"}, Settings())

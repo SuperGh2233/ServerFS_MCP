@@ -1,4 +1,4 @@
-"""FD-based filesystem traversal primitives (Linux-only).
+"""FD-based filesystem traversal primitives for Linux and macOS.
 
 All filesystem access in ServerFS walks path components via directory file
 descriptors using openat semantics:
@@ -22,6 +22,7 @@ import errno
 import os
 import secrets
 import stat as stat_module
+import sys
 
 from .paths import (
     RESERVED_TEMP_PREFIX,
@@ -57,8 +58,8 @@ def _map_open_error(exc: OSError, name: str, *, dir_fd: int | None = None) -> No
                 raise SymlinkNotAllowedError() from exc
     if exc.errno in (errno.ENOTDIR, errno.EISDIR):
         raise NotADirectoryError(name) from exc
-    if exc.errno == errno.ENXIO:
-        # e.g. opening a UNIX socket
+    if exc.errno in (errno.ENXIO, errno.ENOTSUP, errno.EOPNOTSUPP):
+        # macOS reports EOPNOTSUPP when opening a UNIX socket as a file.
         raise UnsupportedFileTypeError() from exc
     if exc.errno in (errno.EACCES, errno.EPERM):
         raise PathSecurityError("permission denied") from exc
@@ -211,10 +212,17 @@ def stat_final(root_fd: int, rel_parts: tuple[str, ...]) -> os.stat_result:
             _map_open_error(exc, final)
 
 
-def proc_fd_path(fd: int) -> str:
-    """/proc/self/fd/N — used as a child-process cwd so rg operates on the
-    exact directory object we validated (pass_fds keeps it alive)."""
-    return f"/proc/self/fd/{fd}"
+def proc_fd_path(fd: int) -> str | None:
+    """Return Linux's descriptor-backed child cwd, or None on macOS.
+
+    macOS does not provide a usable /proc/self/fd cwd path. Search then starts
+    a small Python exec wrapper that calls fchdir on the passed, validated FD.
+    """
+    if sys.platform.startswith("linux"):
+        return f"/proc/self/fd/{fd}"
+    if sys.platform == "darwin":
+        return None
+    raise RuntimeError(f"unsupported platform for descriptor-backed search: {sys.platform}")
 
 
 # ---- mutation primitives (all dir_fd-relative, never re-resolved) ----

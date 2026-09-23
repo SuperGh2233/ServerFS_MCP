@@ -58,6 +58,10 @@ from .models import (
     UploadBinaryFileResult,
 )
 from .paths import ResolvedPath
+from .xattrs import _NO_ATTRIBUTE_ERRNOS
+from .xattrs import get_fd as get_xattr_fd
+from .xattrs import list_fd as list_xattrs_fd
+from .xattrs import set_fd as set_xattr_fd
 
 REVISION_PREFIX = "v1:"
 _REVISION_HEX_CHARS = 16
@@ -320,7 +324,7 @@ def _preserve_metadata(src_fd: int, dst_fd: int, st: os.stat_result) -> None:
 
 def _copy_xattrs(src_fd: int, dst_fd: int) -> None:
     try:
-        names = os.listxattr(src_fd)
+        names = list_xattrs_fd(src_fd)
     except OSError as exc:
         if exc.errno in (errno.ENOTSUP, errno.EOPNOTSUPP):
             # the filesystem stores no xattrs at all, so none can be lost
@@ -328,13 +332,13 @@ def _copy_xattrs(src_fd: int, dst_fd: int) -> None:
         raise MetadataPreservationError("extended attributes could not be read") from exc
     for attr in names:
         try:
-            value = os.getxattr(src_fd, attr)
+            value = get_xattr_fd(src_fd, attr)
         except OSError as exc:
-            if exc.errno == errno.ENODATA:
+            if exc.errno in _NO_ATTRIBUTE_ERRNOS:
                 continue  # removed concurrently: nothing left to preserve
             raise MetadataPreservationError("extended attributes could not be read") from exc
         try:
-            os.setxattr(dst_fd, attr, value)
+            set_xattr_fd(dst_fd, attr, value)
         except OSError as exc:
             raise MetadataPreservationError("extended attributes could not be preserved") from exc
 

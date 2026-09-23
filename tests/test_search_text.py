@@ -11,6 +11,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 
 import pytest
 
@@ -145,7 +146,18 @@ class TestLiteralQuery:
         assert "-L" not in captured["args"]
         assert "--follow" not in captured["args"]
         assert captured["kwargs"]["shell"] is False
-        assert captured["kwargs"]["cwd"].startswith("/proc/self/fd/")
+        from serverfs_mcp.fdio import proc_fd_path
+
+        expected_cwd = proc_fd_path(captured["kwargs"]["pass_fds"][0])
+        if expected_cwd is None:
+            assert captured["args"][:3] == [
+                sys.executable,
+                "-m",
+                "serverfs_mcp.fd_exec",
+            ]
+            assert captured["kwargs"]["cwd"] == "/"
+        else:
+            assert captured["kwargs"]["cwd"] == expected_cwd
 
 
 class TestCaseSensitivity:

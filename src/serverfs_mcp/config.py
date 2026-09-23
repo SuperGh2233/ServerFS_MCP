@@ -1,7 +1,8 @@
 """Runtime settings parsed from environment variables.
 
-Only agent-facing knobs live here. Host paths never enter this container's
-environment — Compose maps them to /workdirs/XX bind mounts instead.
+Only agent-facing knobs live here. In Docker mode host paths never enter the
+container's environment — Compose maps them to /workdirs/XX bind mounts instead.
+Explicit native macOS mode reads WORKDIR_XX_PATH directly.
 """
 
 from __future__ import annotations

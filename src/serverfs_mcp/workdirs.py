@@ -10,6 +10,7 @@ with a message suitable for both logs and startup exit.
 from __future__ import annotations
 
 import re
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -177,6 +178,18 @@ def parse_read_only(slot: int, raw: str) -> bool:
     )
 
 
+def native_mode_enabled(env: Mapping[str, str]) -> bool:
+    """Parse the explicit native macOS runtime switch, failing closed."""
+    raw = env.get("SERVERFS_NATIVE_MODE", "").strip().lower()
+    if not raw or raw in _FALSE_VALUES:
+        return False
+    if raw in _TRUE_VALUES:
+        if sys.platform != "darwin":
+            raise WorkdirError("SERVERFS_NATIVE_MODE is supported only on macOS")
+        return True
+    raise WorkdirError("invalid SERVERFS_NATIVE_MODE value. Use true or false.")
+
+
 def build_registry(
     env_alias: dict[int, str],
     env_description: dict[int, str],
@@ -211,13 +224,43 @@ def _build_registry(
     """Shared implementation for production and the legacy test helper."""
     workdirs: list[Workdir] = []
     seen_aliases: dict[str, int] = {}
+    native_mode = native_mode_enabled(env)
 
     for slot in range(1, SLOT_COUNT + 1):
         prefix = f"WORKDIR_{slot:02d}_"
         alias = env.get(prefix + "ALIAS", "").strip()
         description = env.get(prefix + "DESCRIPTION", "").strip() or None
         read_only = parse_read_only(slot, env.get(prefix + "READ_ONLY", ""))
-        slot_path = workdir_root / f"{slot:02d}"
+        if native_mode:
+            raw_path = env.get(prefix + "PATH", "").strip()
+            if not alias and not raw_path:
+                if not read_only:
+                    raise WorkdirError(
+                        f"slot {slot:02d}: disabled slot has "
+                        f"WORKDIR_{slot:02d}_READ_ONLY=false. A slot without a path "
+                        "cannot be written to; set it back to true or remove the "
+                        "variable."
+                    )
+                _validate_disabled_slot_overrides(slot, env)
+                continue
+            if not alias:
+                raise WorkdirError(
+                    f"slot {slot:02d}: WORKDIR_{slot:02d}_PATH is set but "
+                    f"WORKDIR_{slot:02d}_ALIAS is empty."
+                )
+            if not raw_path:
+                raise WorkdirError(
+                    f"slot {slot:02d}: alias '{alias}' is set but "
+                    f"WORKDIR_{slot:02d}_PATH is empty. Set a native host path."
+                )
+            slot_path = Path(raw_path).expanduser()
+            if not slot_path.is_absolute() or slot_path.is_symlink() or not slot_path.is_dir():
+                raise WorkdirError(
+                    f"slot {slot:02d}: WORKDIR_{slot:02d}_PATH must be an existing "
+                    "absolute real directory in native mode."
+                )
+        else:
+            slot_path = workdir_root / f"{slot:02d}"
         sentinel = slot_path / DISABLED_SENTINEL
         sentinel_present = _is_sentinel(slot, slot_path, sentinel, alias)
 

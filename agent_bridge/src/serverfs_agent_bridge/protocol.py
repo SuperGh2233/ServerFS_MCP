@@ -6,13 +6,12 @@ import asyncio
 import errno
 import json
 import os
-import socket
 import stat
-import struct
 from pathlib import Path
 from typing import Any
 
 from .errors import BridgeError
+from .peer_credentials import peer_uid_gid
 from .service import BridgeService
 
 PROTOCOL_VERSION = 1
@@ -239,13 +238,12 @@ class BridgeProtocolServer:
 
     def _check_peer(self, writer: asyncio.StreamWriter) -> None:
         sock = writer.get_extra_info("socket")
-        if sock is None or not hasattr(socket, "SO_PEERCRED"):
+        if sock is None:
             raise BridgeError("PEER_NOT_AUTHORIZED", "peer credentials are unavailable")
         try:
-            raw = sock.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
+            uid, gid = peer_uid_gid(sock)
         except OSError as exc:
             raise BridgeError("PEER_NOT_AUTHORIZED", "peer credentials are unavailable") from exc
-        _, uid, gid = struct.unpack("3i", raw)
         if self.allowed_peer_uid is not None and uid != self.allowed_peer_uid:
             raise BridgeError("PEER_NOT_AUTHORIZED", "peer uid is not authorized")
         if self.allowed_peer_gid is not None and gid != self.allowed_peer_gid:

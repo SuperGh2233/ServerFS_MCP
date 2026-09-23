@@ -27,6 +27,42 @@ ChatGPT
 The base `compose.yml` remains Agent-unaware. Agent deployment is opt-in via
 `compose.agent.yml`.
 
+## macOS architecture overview
+
+The systemd user deployment below remains the Linux path. Docker Desktop for
+Mac cannot pass a host Unix-domain socket through its file-sharing layer, so
+the macOS Agent Bridge mode runs both ServerFS and the Bridge as native
+processes under the same login user. Their same-user UDS connection continues
+to use kernel peer authentication; the Bridge reads credentials with
+`getpeereid(2)`. No TCP Agent RPC listener is added.
+
+The OpenAI Tunnel remains in Docker. Start it with `compose.macos.yml`, which
+connects to ServerFS at `http://host.docker.internal:8000/mcp`. Native ServerFS
+binds only to `127.0.0.1:8000` and accepts that exact Host value, with DNS
+rebinding protection enabled and all non-empty Origins rejected. The macOS
+renderer uses the current login UID/GID because both local processes run as
+that user; runtime peer checks still use the kernel-reported identity on every
+connection.
+
+For a test, set `SERVERFS_NATIVE_MODE=true` and use a dedicated read-write
+scratch workdir with `WORKDIR_XX_AGENT_MODE=workspace-write`. Render the Bridge
+config with the normal `render_config.py --env-file .env` command, then launch
+the host processes in separate terminals:
+
+```bash
+deployment/agent-bridge/run_macos_bridge.sh \
+  "$HOME/.config/serverfs-agent-bridge/config.json"
+deployment/agent-bridge/run_macos_server.py --env-file .env
+docker compose --project-name serverfs-mac --env-file .env \
+  -f compose.macos.yml up -d
+```
+
+The native ServerFS launcher reads only its workdir and ServerFS settings; it
+filters out tunnel keys, provider settings and the optional Jev key. Keep those
+values available only to the tunnel or the host Bridge as appropriate. This
+manual foreground mode is intended for macOS development and testing; the
+systemd installer and `verify_host.py` remain Linux-only.
+
 ## User-owned paths
 
 The default deployment uses only:
@@ -56,6 +92,60 @@ The default deployment uses only:
 
 No project script creates a system user, system group or system-owned
 configuration directory.
+
+## macOS native Agent Bridge setup
+
+The systemd-based Phase E installation below targets Linux. For macOS,
+`compose.agent.yml` cannot be used because Docker Desktop does not support
+connecting from a Linux container to a macOS-hosted Unix socket bind mount.
+Run both ServerFS and this Bridge natively as the same login user, then run only
+the OpenAI tunnel in Docker with `compose.macos.yml`. The native ServerFS
+listener binds to loopback, accepts exactly `host.docker.internal:8000`, and
+the Docker tunnel reaches it through Docker Desktop's host gateway.
+
+The Bridge keeps the same Unix-socket RPC protocol on macOS. Its peer gate uses
+the kernel's `getpeereid(2)` result instead of Linux-only `SO_PEERCRED`; there
+is no TCP listener or shared socket mount. The native config renderer sets the
+allowed peer to the current login user, while the Bridge still checks the
+kernel-reported UID/GID on every connection.
+
+Set `SERVERFS_NATIVE_MODE=true` and configure absolute host workdir paths in
+the existing `.env`. For a test deployment, use a dedicated read-write scratch
+slot with `WORKDIR_XX_AGENT_MODE=workspace-write` and
+`WORKDIR_XX_AGENT_RUNTIMES=codex` or `claude`. Keep unrelated workdirs
+Agent-disabled. The macOS launcher filters Tunnel/API and provider secrets out
+of the native ServerFS process environment. Create the user-owned Bridge
+socket, lock and state directories before rendering its config.
+
+Install/run the Bridge in its own Python 3.12 environment, then run the two
+native processes in separate terminals:
+
+```bash
+cd agent_bridge
+.venv/bin/uv sync --frozen
+cd ..
+python3 deployment/agent-bridge/render_config.py \
+  --env-file .env \
+  --output "$HOME/.config/serverfs-agent-bridge/config.json"
+deployment/agent-bridge/run_macos_bridge.sh
+```
+
+In another terminal, start native ServerFS and the tunnel:
+
+```bash
+python3 deployment/agent-bridge/run_macos_server.py --env-file .env
+docker compose --project-name serverfs-mac --env-file .env \
+  -f compose.macos.yml up -d
+```
+
+For a test-specific Codex home, set `SERVERFS_CODEX_HOME` to that directory and
+configure `model = "gpt-6-luna"` plus `model_reasoning_effort = "max"` in its
+`config.toml`. Keep the home path short (for example,
+`$HOME/.codex/serverfs-mac-test`) because the Codex control socket is nested
+under that directory and macOS limits Unix-socket path length. Authentication
+remains the user's native Codex sign-in. This manual foreground mode is intended
+for Mac development and testing; the systemd installer and verification
+commands below remain Linux-only.
 
 ## Identity contract
 

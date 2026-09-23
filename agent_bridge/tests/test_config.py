@@ -162,7 +162,7 @@ def test_codex_config_is_strict_and_fail_closed(tmp_path: Path) -> None:
     config = BridgeConfig.load(path)
     assert config.codex.enabled is True
     assert config.codex.control_socket == (
-        codex_home / "app-server-control" / "app-server-control.sock"
+        codex_home.resolve() / "app-server-control" / "app-server-control.sock"
     )
 
     data = json.loads(path.read_text(encoding="utf-8"))

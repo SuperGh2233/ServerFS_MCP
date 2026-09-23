@@ -45,6 +45,7 @@ def test_main_wires_streamable_http_transport_security(monkeypatch) -> None:
             captured.update(kwargs)
 
     registry = Registry()
+    monkeypatch.delenv("SERVERFS_NATIVE_MODE", raising=False)
     monkeypatch.setattr(main_module, "settings_from_env", lambda _env: Settings())
     monkeypatch.setattr(main_module, "build_registry_from_env", lambda _env, _settings: registry)
     monkeypatch.setattr(main_module, "log_startup", lambda _settings, _registry: None)
@@ -64,6 +65,37 @@ def test_main_wires_streamable_http_transport_security(monkeypatch) -> None:
     security = main_module.STREAMABLE_HTTP_TRANSPORT_SECURITY
     assert security.enable_dns_rebinding_protection is True
     assert security.allowed_hosts == ["serverfs-mcp:8000"]
+    assert security.allowed_origins == []
+
+
+def test_native_macos_mode_binds_loopback_and_keeps_exact_host_allowlist(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class Registry:
+        def all_workdirs(self):
+            return []
+
+    class Server:
+        def run(self, transport: str, **kwargs) -> None:
+            captured["transport"] = transport
+            captured.update(kwargs)
+
+    registry = Registry()
+    monkeypatch.setenv("SERVERFS_NATIVE_MODE", "true")
+    monkeypatch.setattr(main_module, "settings_from_env", lambda _env: Settings())
+    monkeypatch.setattr(main_module, "build_registry_from_env", lambda _env, _settings: registry)
+    monkeypatch.setattr(main_module, "log_startup", lambda _settings, _registry: None)
+    monkeypatch.setattr(
+        main_module,
+        "create_server",
+        lambda _settings, _registry, _agent_client, _file_ingress_client: Server(),
+    )
+
+    assert main_module.main() == 0
+    assert captured["host"] == "127.0.0.1"
+    security = captured["transport_security"]
+    assert security.enable_dns_rebinding_protection is True
+    assert security.allowed_hosts == ["host.docker.internal:8000"]
     assert security.allowed_origins == []
 
 

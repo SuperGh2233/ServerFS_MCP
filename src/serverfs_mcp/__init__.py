@@ -1,8 +1,8 @@
-"""ServerFS MCP: secure MCP server for Linux workdirs.
+"""ServerFS MCP: secure MCP server for Linux and macOS workdirs.
 
-A secure MCP server that exposes explicitly configured Linux directories as
-controlled workdirs to AI agents, read-only by default with opt-in
-per-workdir file mutation.
+A secure MCP server that exposes explicitly configured host directories as
+controlled workdirs to AI agents, read-only by default with opt-in per-workdir
+file mutation.
 """
 
 from importlib.metadata import version

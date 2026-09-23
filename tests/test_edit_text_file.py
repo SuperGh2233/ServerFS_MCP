@@ -9,6 +9,9 @@ import stat as stat_module
 import pytest
 
 from helpers import call_error, call_success, error_code, make_server
+from serverfs_mcp import mutations
+from serverfs_mcp.xattrs import get_path as get_xattr_path
+from serverfs_mcp.xattrs import set_path as set_xattr_path
 
 BOM = b"\xef\xbb\xbf"
 
@@ -739,7 +742,7 @@ class TestEditMetadata:
         seed(workdir, "a.txt", "content\n")
         target = workdir.container_path / "a.txt"
         try:
-            os.setxattr(target, "user.serverfs-test", b"keep-me")
+            set_xattr_path(target, "user.serverfs-test", b"keep-me")
         except OSError as exc:
             if exc.errno in (errno.ENOTSUP, errno.EOPNOTSUPP):
                 pytest.skip("filesystem does not support user xattrs")
@@ -750,7 +753,7 @@ class TestEditMetadata:
             revision_of(srv, "a.txt"),
             [{"old_text": "content", "new_text": "changed"}],
         )
-        assert os.getxattr(target, "user.serverfs-test") == b"keep-me"
+        assert get_xattr_path(target, "user.serverfs-test") == b"keep-me"
         assert (target).read_text() == "changed\n"
 
     def test_mode_preservation_failure_aborts_the_edit(self, workdir, monkeypatch) -> None:
@@ -780,7 +783,7 @@ class TestEditMetadata:
         seed(workdir, "a.txt", "content\n")
         target = workdir.container_path / "a.txt"
         try:
-            os.setxattr(target, "user.serverfs-test", b"keep-me")
+            set_xattr_path(target, "user.serverfs-test", b"keep-me")
         except OSError as exc:
             if exc.errno in (errno.ENOTSUP, errno.EOPNOTSUPP):
                 pytest.skip("filesystem does not support user xattrs")
@@ -789,7 +792,7 @@ class TestEditMetadata:
         def boom(*args, **kwargs):
             raise OSError(errno.EPERM, "Operation not permitted")
 
-        monkeypatch.setattr(os, "setxattr", boom)
+        monkeypatch.setattr(mutations, "set_xattr_fd", boom)
         msg = call_error(
             srv,
             "edit_text_file",
@@ -884,7 +887,7 @@ class TestEditMetadata:
         seed(workdir, "a.txt", "content\n")
         target = workdir.container_path / "a.txt"
         try:
-            os.setxattr(target, "user.serverfs-order", b"x")
+            set_xattr_path(target, "user.serverfs-order", b"x")
         except OSError as exc:
             if exc.errno in (errno.ENOTSUP, errno.EOPNOTSUPP):
                 pytest.skip("filesystem does not support user xattrs")
@@ -892,7 +895,7 @@ class TestEditMetadata:
         os.chown(target, os.getuid(), group)
 
         order: list[str] = []
-        for name in ("fchown", "fchmod", "setxattr"):
+        for name in ("fchown", "fchmod"):
             real = getattr(os, name)
 
             def record(*args, _name=name, _real=real, **kwargs):
@@ -900,6 +903,14 @@ class TestEditMetadata:
                 return _real(*args, **kwargs)
 
             monkeypatch.setattr(os, name, record)
+
+        real_set_xattr = mutations.set_xattr_fd
+
+        def record_xattr(*args, **kwargs):
+            order.append("setxattr")
+            return real_set_xattr(*args, **kwargs)
+
+        monkeypatch.setattr(mutations, "set_xattr_fd", record_xattr)
 
         src_fd = os.open(target, os.O_RDONLY)
         dst_fd = os.open(
@@ -912,7 +923,8 @@ class TestEditMetadata:
         finally:
             os.close(src_fd)
             os.close(dst_fd)
-        assert order == ["fchown", "fchmod", "setxattr"]
+        assert order[:2] == ["fchown", "fchmod"]
+        assert order[2:] and set(order[2:]) == {"setxattr"}
 
 
 def _raise_eperm(*args, **kwargs):
