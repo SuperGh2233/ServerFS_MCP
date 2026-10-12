@@ -1,12 +1,13 @@
 """The v0.13 macOS runtime gate (dev_plan_v0.13.md §2.1).
 
-v0.13 supports exactly: native arm64 processes on Apple M-series Macs
-running macOS 27.x. Everything else fails closed — never silently execute
-on an unvalidated platform. The gate is measured, not assumed from labels:
+This fork additionally permits macOS 26.x after local capability validation.
+Native arm64 processes on Apple M-series Macs running macOS 26.x or 27.x are
+accepted; everything else fails closed — never silently execute on an
+unvalidated platform. The gate is measured, not assumed from labels:
 
 - ``sys.platform == "darwin"``
 - ``platform.machine() == "arm64"``
-- macOS major version == 27 (patch releases inside 27 remain allowed)
+- macOS major version is 26 or 27 (patch releases remain allowed)
 - NOT Rosetta-translated (``sysctl proc_translated`` == 0)
 
 A gate result that cannot be measured (unknown translation state, empty
@@ -21,12 +22,12 @@ import platform
 import sys
 from dataclasses import dataclass
 
-SUPPORTED_MACOS_MAJOR = 27
+SUPPORTED_MACOS_MAJORS = frozenset({26, 27})
 SUPPORTED_MACHINE = "arm64"
 
 REASON_NOT_DARWIN = "not a Darwin platform"
 REASON_NOT_ARM64 = "processor is not native arm64"
-REASON_WRONG_MACOS = "macOS version is not 27.x"
+REASON_WRONG_MACOS = "macOS version is not 26.x or 27.x"
 REASON_ROSETTA = "process is running under Rosetta translation"
 REASON_UNMEASURABLE = "platform could not be verified (fail-closed)"
 
@@ -81,7 +82,7 @@ def darwin_platform_status() -> DarwinPlatformStatus:
     major = int(macos.split(".")[0]) if macos else None
     if machine != SUPPORTED_MACHINE:
         return DarwinPlatformStatus(False, machine, macos, rosetta, REASON_NOT_ARM64)
-    if major != SUPPORTED_MACOS_MAJOR:
+    if major not in SUPPORTED_MACOS_MAJORS:
         return DarwinPlatformStatus(False, machine, macos, rosetta, REASON_WRONG_MACOS)
     if rosetta is None:
         return DarwinPlatformStatus(False, machine, macos, None, REASON_UNMEASURABLE)

@@ -210,7 +210,7 @@ def get_backend() -> FilesystemBackend:
 
         linux                -> LinuxWorkdirSession
         darwin (M-series,
-        macOS 27, native
+        macOS 26/27, native
         arm64, not Rosetta)  -> DarwinWorkdirSession
         win32                -> WindowsWorkdirSession
         anything else        -> NATIVE_PLATFORM_UNSUPPORTED

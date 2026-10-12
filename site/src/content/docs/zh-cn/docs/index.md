@@ -29,7 +29,7 @@ ServerFS 不提供 Shell、通用命令执行器、递归删除或无保护覆�
 - [二进制传输](./binary-transfer/) — 启用有界 download/upload，以及可选的 ChatGPT 文件参数入口。
 - [Agent Bridge](./agent-bridge/) — 按需启用结构化 Codex/Claude/Qoder 委派。
 - [Windows 原生部署](./windows-native/) —— Windows 11 x64 + 本地 NTFS 原生部署，包括安装、健康检查、Tunnel bootstrap 与 Agent 委派。
-- [macOS 原生部署](./macos-native/) —— Apple M 系列 + macOS 27 原生部署，包括 Darwin 文件系统边界、launchd Agent Bridge 与平台门控。
+- [macOS 原生部署](./macos-native/) —— Apple M 系列 + macOS 26/27 原生部署（macOS 26 为本 fork 的实验性支持），包括 Darwin 文件系统边界、launchd Agent Bridge 与平台门控。
 - [Jev Advisors](./jev-advisors/) — 按需启用实验性的 task preflight、五路 runtime routing、提交前模型建议与 approval advice；v0.12 新增独立、显式的 Jev 代理路由。
 
 本文档站是面向用户与运维的权威参考；仓库 README 有意保持为简洁的项目入口。

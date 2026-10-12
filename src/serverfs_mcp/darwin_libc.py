@@ -1,6 +1,6 @@
 """Minimal Darwin libc bindings for primitives Python does not expose.
 
-Every binding here was verified against the real macOS 27 / arm64 system in
+Every binding here was verified against the real macOS 26/27 / arm64 system in
 ``docs/phase-0-macos27-arm64-capability-probe-2026-10.md``:
 
 - ``fcopyfile(src_fd, dst_fd, NULL, COPYFILE_METADATA)`` carries POSIX mode,

@@ -220,7 +220,7 @@ def run_native_tunnel(
     if sys.platform == "linux":
         raise NativeTunnelError(
             "the Linux deployment runs the Docker compose topology; the native "
-            "tunnel launcher is supported on Windows and macOS 27"
+            "tunnel launcher is supported on Windows and macOS 26/27"
         )
     if sys.platform == "darwin":
         from .darwin_platform import ensure_supported_darwin

@@ -7,7 +7,7 @@
 - **v0.13.2 is released and is the current stable release.**
 - Native deployment families: Linux, Windows and macOS.
 - Native Agent runtimes: Codex, Claude and Qoder, subject to the platform/runtime gates documented for each deployment.
-- macOS v0.13 support is intentionally narrow: Apple M-series, native arm64, macOS 27 Golden Gate; no Intel, Rosetta, macOS 26/28 or `darwin-amd64` tunnel asset is claimed. v0.13.2 moves persistent Tunnel/Bridge lifecycle to app-associated `SMAppService` LaunchAgents.
+- Upstream macOS v0.13 evidence covers Apple M-series, native arm64, macOS 27 Golden Gate. This fork additionally enables macOS 26 experimentally after local capability checks; no Intel, Rosetta, macOS 25-or-older/28+ or `darwin-amd64` tunnel asset is claimed. v0.13.2 moves persistent Tunnel/Bridge lifecycle to app-associated `SMAppService` LaunchAgents.
 - `dev_plan_v*.md`, acceptance reports and audits are historical records. Update a stale present-tense status when it becomes false, but do not mechanically rewrite historical evidence or milestone facts.
 
 ## Read order

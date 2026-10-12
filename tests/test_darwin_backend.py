@@ -48,13 +48,13 @@ def session(workdir):
 
 
 class TestPlatformGate:
-    """The measured gate passes on this machine and rejects the rest."""
+    """The fork gate passes on macOS 26/27 and rejects the rest."""
 
     def test_this_machine_is_supported(self) -> None:
         status = darwin_platform_status()
         assert status.supported, status.reason
         assert status.machine == "arm64"
-        assert status.macos_version.startswith("27.")
+        assert status.macos_version.split(".", 1)[0] in {"26", "27"}
         assert status.rosetta is False
 
     def test_rejects_non_darwin(self, monkeypatch) -> None:
@@ -73,10 +73,17 @@ class TestPlatformGate:
         assert not status.supported
         assert status.reason == REASON_NOT_ARM64
 
-    def test_rejects_macos_26(self, monkeypatch) -> None:
+    def test_accepts_macos_26(self, monkeypatch) -> None:
         import serverfs_mcp.darwin_platform as gate
 
         monkeypatch.setattr(gate, "_macos_version", lambda: "26.4")
+        status = gate.darwin_platform_status()
+        assert status.supported, status.reason
+
+    def test_rejects_macos_25(self, monkeypatch) -> None:
+        import serverfs_mcp.darwin_platform as gate
+
+        monkeypatch.setattr(gate, "_macos_version", lambda: "25.7")
         status = gate.darwin_platform_status()
         assert not status.supported
         assert status.reason == REASON_WRONG_MACOS
@@ -108,6 +115,12 @@ class TestPlatformGate:
         import serverfs_mcp.darwin_platform as gate
 
         monkeypatch.setattr(gate, "_macos_version", lambda: "27.9.3")
+        assert gate.darwin_platform_status().supported
+
+    def test_patch_release_inside_26_is_allowed(self, monkeypatch) -> None:
+        import serverfs_mcp.darwin_platform as gate
+
+        monkeypatch.setattr(gate, "_macos_version", lambda: "26.6.2")
         assert gate.darwin_platform_status().supported
 
     def test_dispatch_returns_darwin_backend(self) -> None:

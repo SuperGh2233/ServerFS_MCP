@@ -134,7 +134,7 @@ def _darwin_volume_info(root: Path) -> tuple[str, bool] | None:
 def _classify_darwin_storage(info: tuple[str, bool] | None) -> tuple[str, str]:
     """v0.13 GA filesystem verdict for one macOS root (dev_plan §9 B6).
 
-    GA support is LOCAL APFS on macOS 27. Network volumes break the
+    Experimental fork support is LOCAL APFS on macOS 26/27. Network volumes break the
     atomicity assumptions behind revision/CAS and fail outright; other
     local filesystems work mechanically but carry no support claim.
     """
@@ -343,7 +343,7 @@ def _backend_line(report: _Report) -> None:
                 "native backend",
                 FAIL,
                 f"unsupported Darwin platform -- {status.reason} "
-                f"(v0.13 supports native arm64 macOS 27 only)",
+                f"(this fork supports native arm64 macOS 26/27)",
             )
             return
         # metadata-copy support is the one Darwin primitive the mutation

@@ -9,7 +9,8 @@ LaunchDaemon, root helper or Rosetta requirement.
 ## Supported platform
 
 ```text
-Apple M-series Mac, native arm64 (no Rosetta), macOS 27 Golden Gate, local APFS
+Apple M-series Mac, native arm64 (no Rosetta), macOS 26/27, local APFS. macOS 26
+is experimental in this fork; upstream v0.13.2 evidence covers macOS 27.
 ```
 
 ## Install dependencies

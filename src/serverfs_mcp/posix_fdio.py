@@ -10,7 +10,7 @@ symlink rejection are decided atomically by the kernel at open time, and
 once a file FD is held, stat/read operate on the exact object that was
 opened — a concurrent rename/replace cannot redirect either.
 
-Every primitive here was verified on macOS 27 / arm64 in
+Every primitive here was verified on macOS 26/27 / arm64 in
 ``docs/phase-0-macos27-arm64-capability-probe-2026-10.md`` (0B/0C): the
 openat flag set, dir_fd-relative mutation set, no-follow classification and
 FD identity across atomic rename behave identically on Linux and Darwin.

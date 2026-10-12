@@ -320,7 +320,7 @@ def _overlay_ingress_env(settings):
 def cmd_serve(args: argparse.Namespace) -> int:
     """Run the shared MCP tool registration over native stdio."""
     if sys.platform == "darwin":
-        # v0.13 macOS gate: M-series / native arm64 / macOS 27 / not Rosetta
+        # Fork gate: M-series / native arm64 / macOS 26 or 27 / not Rosetta
         # (dev_plan_v0.13.md §2.1). Any other Darwin environment refuses
         # loudly instead of silently executing.
         from .darwin_platform import UNSUPPORTED_CODE, darwin_platform_status
@@ -329,7 +329,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
         if not status.supported:
             return _fail(f"{UNSUPPORTED_CODE}: {status.reason}")
     elif sys.platform != "win32":
-        return _fail("native serve is supported only on Windows and macOS 27 (Apple Silicon)")
+        return _fail("native serve is supported only on Windows and macOS 26/27 (Apple Silicon)")
     workdirs, native_settings = _load(args.config)
     if sys.platform == "darwin" and native_settings.agent_enabled:
         from .darwin_bridge_policy import DarwinBridgePolicyError, policy_is_synced
@@ -418,7 +418,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
                 if not status.supported:
                     return _fail(
                         f"{UNSUPPORTED_CODE}: tunnel-client bootstrap requires native arm64 "
-                        f"macOS 27 ({status.reason})"
+                        f"macOS 26/27 ({status.reason})"
                     )
             path = bootstrap_tunnel_client(force=args.force)
             sys.stderr.write(f"tunnel-client installed: {path}\n")

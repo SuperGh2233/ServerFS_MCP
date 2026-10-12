@@ -29,7 +29,7 @@ There is no shell, generic command executor, recursive delete, or unguarded over
 - [Binary Transfer](./binary-transfer/) — enable bounded download/upload, including optional ChatGPT file-parameter ingress.
 - [Agent Bridge](./agent-bridge/) — opt into structured Codex/Claude/Qoder delegation.
 - [Windows Native](./windows-native/) — native Windows 11 x64 + local NTFS deployment, including installation, health checks, tunnel bootstrap, and Agent delegation.
-- [macOS Native](./macos-native/) — native Apple M-series + macOS 27 deployment, including the Darwin filesystem boundary, launchd Agent Bridge, and platform gate.
+- [macOS Native](./macos-native/) — native Apple M-series + macOS 26/27 deployment (macOS 26 experimental in this fork), including the Darwin filesystem boundary, launchd Agent Bridge, and platform gate.
 - [Jev Advisors](./jev-advisors/) — optional experimental task preflight, five-way runtime routing, pre-submit model advice, and approval advice; v0.12 adds independent explicit Jev proxy routing.
 
 This documentation site is the authoritative user and operator reference. The repository README is intentionally a concise project entry point.

@@ -1,9 +1,9 @@
 ---
 title: macOS 原生部署
-description: ServerFS v0.13.2 macOS 原生部署 —— Apple M 系列、macOS 27、Darwin FD 安全边界，以及基于 Apple SMAppService 的 Tunnel / Agent Bridge 持久化。
+description: ServerFS v0.13.2 macOS 原生部署 —— Apple M 系列、macOS 26/27（本 fork 的实验性支持）、Darwin FD 安全边界，以及基于 Apple SMAppService 的 Tunnel / Agent Bridge 持久化。
 ---
 
-**v0.13.2 是当前已发布稳定版本。** ServerFS 可在 **运行 macOS 27 Golden Gate 的 Apple M 系列 Mac** 上原生运行。支持边界保持严格：仅限原生 **arm64**，不支持 Rosetta/x86_64，仅支持 macOS 27.x 与**本地 APFS** workdir。Intel Mac、Hackintosh、macOS 26 及更早版本、macOS 28 及更新版本都会以 `NATIVE_PLATFORM_UNSUPPORTED` 失败关闭。
+**v0.13.2 是当前已发布稳定版本。** 上游证据覆盖 **运行 macOS 27 Golden Gate 的 Apple M 系列 Mac**；本 fork 在完成本机能力检查后额外实验性启用 **macOS 26**。支持边界保持严格：仅限原生 **arm64**，不支持 Rosetta/x86_64，仅支持 macOS 26.x 或 27.x 与**本地 APFS** workdir。Intel Mac、Hackintosh、macOS 25 及更早版本、macOS 28 及更新版本都会以 `NATIVE_PLATFORM_UNSUPPORTED` 失败关闭。
 
 v0.13.2 保持 Darwin 文件系统和 Agent 协议实现为 Python，只将旧的手工 LaunchAgent 生命周期替换为 Apple 当前的 **ServiceManagement / `SMAppService`** 模式。一个极小的无界面 `ServerFSServiceManager.app` 负责两个每用户 LaunchAgent 的注册与状态：
 

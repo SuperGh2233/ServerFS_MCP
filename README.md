@@ -40,9 +40,9 @@ ServerFS is built around that narrower boundary:
 | --- | --- | --- | --- |
 | **Linux** | Docker Compose, `linux/amd64` and `linux/arm64` | Bind-mounted workdirs; container read-only by default | Optional host Agent Bridge |
 | **Windows** | Windows 11 x64, local NTFS | Native HANDLE-relative Rust kernel over MCP stdio | Codex, Claude Code, Qoder |
-| **macOS** | Apple M-series, native arm64, macOS 27 Golden Gate | Native descriptor-relative Darwin backend over MCP stdio | Codex, Claude Code, Qoder |
+| **macOS** | Apple M-series, native arm64, macOS 26/27 (fork experimental support) | Native descriptor-relative Darwin backend over MCP stdio | Codex, Claude Code, Qoder |
 
-The macOS v0.13 support boundary is intentionally strict: Intel Macs, Rosetta/x86_64 execution, macOS 26 or older, and macOS 28+ are not claimed as supported. **v0.13.2** adds Apple-native `SMAppService` persistence for the Tunnel and Agent Bridge, so the managed stack no longer depends on terminal/session lifetime. `SMAppService` owns user-login persistence; live reboot/re-login recovery validation is deferred beyond v0.13.2.
+The upstream v0.13.2 macOS evidence covers macOS 27. This fork additionally enables macOS 26 after local arm64 capability checks; Intel Macs, Rosetta/x86_64 execution, macOS 25 or older, and macOS 28+ remain unsupported. Treat macOS 26 as experimental until the capability and service checks in the fork's plan are complete. **v0.13.2** adds Apple-native `SMAppService` persistence for the Tunnel and Agent Bridge, so the managed stack no longer depends on terminal/session lifetime. `SMAppService` owns user-login persistence; live reboot/re-login recovery validation is deferred beyond v0.13.2.
 
 For native setup, use the dedicated guides:
 

@@ -1,4 +1,4 @@
-"""Darwin filesystem backend for macOS 27 on Apple Silicon (v0.13 Phase B).
+"""Darwin filesystem backend for macOS 26/27 on Apple Silicon (v0.13 Phase B).
 
 The Darwin counterpart of ``linux_backend.py``, reached only through
 ``backends.get_backend`` after the strict platform gate
