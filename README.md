@@ -1,24 +1,26 @@
 # ServerFS MCP
 
 [![Release](https://img.shields.io/github/v/release/NTLx/ServerFS_MCP)](https://github.com/NTLx/ServerFS_MCP/releases/latest)
-[![Linux CI](https://github.com/NTLx/ServerFS_MCP/actions/workflows/container.yml/badge.svg)](https://github.com/NTLx/ServerFS_MCP/actions/workflows/container.yml)
-[![Windows CI](https://github.com/NTLx/ServerFS_MCP/actions/workflows/windows-native.yml/badge.svg)](https://github.com/NTLx/ServerFS_MCP/actions/workflows/windows-native.yml)
-[![macOS CI](https://github.com/NTLx/ServerFS_MCP/actions/workflows/macos-native.yml/badge.svg)](https://github.com/NTLx/ServerFS_MCP/actions/workflows/macos-native.yml)
+[![Linux CI](https://github.com/SuperGh2233/ServerFS_MCP/actions/workflows/container.yml/badge.svg)](https://github.com/SuperGh2233/ServerFS_MCP/actions/workflows/container.yml)
+[![Windows CI](https://github.com/SuperGh2233/ServerFS_MCP/actions/workflows/windows-native.yml/badge.svg)](https://github.com/SuperGh2233/ServerFS_MCP/actions/workflows/windows-native.yml)
+[![macOS CI](https://github.com/SuperGh2233/ServerFS_MCP/actions/workflows/macos-native.yml/badge.svg)](https://github.com/SuperGh2233/ServerFS_MCP/actions/workflows/macos-native.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Secure, scoped filesystem access and optional native Agent delegation for ChatGPT and other MCP clients.**
 
 Expose only the directories you choose. Keep them read-only by default. Opt into narrow, revision-guarded file mutations, bounded binary transfer, or structured Codex / Claude Code / Qoder delegation only where you need them.
 
-**Current stable release: v0.13.2**
+**Upstream baseline: v0.13.2.** This fork's additional macOS 26 support remains experimental and is not part of the upstream stable support claim.
 
-[Website](https://ntlx.github.io/ServerFS_MCP/) ·
-[Documentation](https://ntlx.github.io/ServerFS_MCP/docs/) ·
+[Upstream website](https://ntlx.github.io/ServerFS_MCP/) ·
+[Upstream documentation](https://ntlx.github.io/ServerFS_MCP/docs/) ·
 [Getting started](https://ntlx.github.io/ServerFS_MCP/docs/getting-started/) ·
 [Security model](https://ntlx.github.io/ServerFS_MCP/docs/security/) ·
-[Releases](https://github.com/NTLx/ServerFS_MCP/releases)
+[Upstream releases](https://github.com/NTLx/ServerFS_MCP/releases)
 
 ---
+
+> **Fork notice:** This repository is a personal fork of [NTLx/ServerFS_MCP](https://github.com/NTLx/ServerFS_MCP). The upstream documentation and v0.13.2 release describe the upstream baseline. Fork-specific macOS 26 capability work is experimental and is tracked in this repository's [capability verification](docs/phase-macos26-capability-2026-10.md), [macOS CI equivalence report](docs/phase-i-macos-ci-local-equivalence-2026-10.md), and [ServiceManagement probe](docs/phase-v0.13.2-servicemanagement-probe-2026-10.md).
 
 ## Why ServerFS
 
@@ -63,7 +65,7 @@ The shortest path is the Linux Docker deployment.
 ### 1. Clone and configure
 
 ```bash
-git clone https://github.com/NTLx/ServerFS_MCP.git
+git clone https://github.com/SuperGh2233/ServerFS_MCP.git
 cd ServerFS_MCP
 cp .env.example .env
 chmod 600 .env
