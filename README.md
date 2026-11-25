@@ -22,6 +22,8 @@ Expose only the directories you choose. Keep them read-only by default. Opt into
 
 > **Fork notice:** This repository is a personal fork of [NTLx/ServerFS_MCP](https://github.com/NTLx/ServerFS_MCP). The upstream documentation and v0.13.2 release describe the upstream baseline. Fork-specific macOS 26 capability work is experimental and is tracked in this repository's [capability verification](docs/phase-macos26-capability-2026-10.md), [macOS CI equivalence report](docs/phase-i-macos-ci-local-equivalence-2026-10.md), and [ServiceManagement probe](docs/phase-v0.13.2-servicemanagement-probe-2026-10.md).
 
+A concise summary of the fork-only scope, measured validation, and limitations is in [FORK_CONTRIBUTIONS.md](FORK_CONTRIBUTIONS.md).
+
 ## Why ServerFS
 
 Giving an AI agent broad filesystem or shell access is easy. Giving it **only the capabilities required for the task** is harder.
